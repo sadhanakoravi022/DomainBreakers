@@ -12,6 +12,8 @@ import {
 import { AssessmentResult, PracticeQuestion, ReassessmentResult, StudentResponse, DomainId, Question, StudentLanguage } from './types';
 import { AIService } from './services/aiService';
 import { getDomainConfig, getQuestionsForDomain, TECHNICAL_DOMAINS } from './data/technicalDomains';
+import { AuthView } from './components/AuthView';
+import { supabase } from './lib/supabase';
 
 interface SavedDomainProgress {
   assessmentResult: AssessmentResult;
@@ -35,6 +37,9 @@ const isDomainId = (value: string | null): value is DomainId =>
   TECHNICAL_DOMAINS.some(domain => domain.id === value);
 
 export default function App() {
+  const [session, setSession] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
   const [activeDomain, setActiveDomain] = useState<DomainId>(() => {
     const stored = window.localStorage.getItem('domainbreakers-domain');
@@ -59,9 +64,28 @@ export default function App() {
   const activeProgress = domainProgress[activeDomain];
 
   useEffect(() => {
-    window.localStorage.setItem('domainbreakers-language', studentLanguage);
-  }, [studentLanguage]);
+  const getSession = async () => {
+    const { data } = await supabase.auth.getSession();
+    setSession(data.session);
+    setAuthLoading(false);
+  };
 
+  getSession();
+
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    setSession(session);
+  });
+
+  return () => {
+    subscription.unsubscribe();
+  };
+}, []);
+
+useEffect(() => {
+  window.localStorage.setItem('domainbreakers-language', studentLanguage);
+}, [studentLanguage]);
   useEffect(() => {
     window.localStorage.setItem('domainbreakers-domain', activeDomain);
   }, [activeDomain]);
@@ -182,10 +206,30 @@ export default function App() {
   const supplementalQuickCheck = selectedAssessmentResult?.adaptivePractice
     .filter(question => question.concept === targetConcept)
     .slice(3, 6 - originalQuickCheck.length) || [];
-  const quickCheck = [...originalQuickCheck, ...supplementalQuickCheck].slice(0, 5);
+const quickCheck = [...originalQuickCheck, ...supplementalQuickCheck].slice(0, 5);
 
+if (authLoading) {
   return (
-    <div className="min-h-screen bg-[var(--color-soft-white)] text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="text-center">
+        <div className="text-xl font-bold text-white">
+          DOMAIN<span className="text-indigo-400">BREAKERS</span>
+        </div>
+
+        <p className="mt-2 text-sm text-slate-400">
+          Checking your account...
+        </p>
+      </div>
+    </div>
+  );
+}
+
+if (!session) {
+  return <AuthView onAuthenticated={() => {}} />;
+}
+
+return (
+  <div className="min-h-screen bg-[var(--color-soft-white)] text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
       {/* Navigation Header */}
       <Navbar
         currentTab={currentTab}
