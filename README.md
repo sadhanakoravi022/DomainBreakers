@@ -2,19 +2,21 @@
 <img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
 </div>
 
-# Run and deploy your AI Studio app
+# DomainBreakers
 
-This contains everything you need to run your app locally.
+AI-powered learning gap detection, diagnostic reasoning, and adaptive practice.
 
-View your app in AI Studio: https://ai.studio/apps/f0e93d0b-9d3f-44f5-91a9-ce41fd398ca2
-
-## Run Locally
+## Run locally
 
 **Prerequisites:**  Node.js
 
-
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Copy `.env.example` to `.env.local`.
+3. Add your `GEMINI_API_KEY`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY` values to `.env.local`.
+   Get the Supabase URL and anon key from your Supabase project's **Project Settings > API**.
+4. In Supabase, enable the Email provider and set the site's URL and allowed redirect URL to your app origin (for local development, `http://localhost:3000`).
+5. Run the app:
    `npm run dev`
+
+The app uses Supabase Auth for email/password sign-in and account creation. Assessment progress is stored in the browser separately for each signed-in user.
