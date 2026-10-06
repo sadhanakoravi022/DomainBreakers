@@ -16,10 +16,10 @@ db.exec(`
   );
 `);
 
-export function getProgressForClient(clientId: string) {
+export function getProgressForClient(clientId) {
   const row = db
     .prepare('SELECT data FROM client_progress WHERE client_id = ?')
-    .get(clientId) as { data?: string } | undefined;
+    .get(clientId);
 
   if (!row?.data) {
     return {};
@@ -28,7 +28,7 @@ export function getProgressForClient(clientId: string) {
   return JSON.parse(row.data);
 }
 
-export function saveProgressForClient(clientId: string, data: unknown) {
+export function saveProgressForClient(clientId, data) {
   const payload = JSON.stringify(data ?? {});
   db.prepare(
     `INSERT INTO client_progress (client_id, data, updated_at)
