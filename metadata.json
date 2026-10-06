@@ -1,0 +1,6 @@
+{
+  "name": "DomainBreakers — AI Learning Gap Detector",
+  "description": "Don't just find the wrong answer. Find the missing concept. AI-powered learning gap detection, diagnostic reasoning, concept dependency mapping, and adaptive practice.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
