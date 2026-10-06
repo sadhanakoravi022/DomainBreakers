@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { runGeminiDiagnosis } from './server/gemini';
+import { getProgressForClient, saveProgressForClient } from './server/sqlDatabase';
 
 dotenv.config();
 
@@ -13,6 +14,30 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+function getClientId(req: express.Request) {
+  const clientId = req.header('X-Client-Id');
+  return clientId && clientId.length <= 128 ? clientId : null;
+}
+
+app.get('/api/progress', (req, res) => {
+  const clientId = getClientId(req);
+  if (!clientId) {
+    return res.status(400).json({ error: 'Missing or invalid client ID.' });
+  }
+
+  return res.json({ progress: getProgressForClient(clientId) });
+});
+
+app.put('/api/progress', (req, res) => {
+  const clientId = getClientId(req);
+  if (!clientId) {
+    return res.status(400).json({ error: 'Missing or invalid client ID.' });
+  }
+
+  const saved = saveProgressForClient(clientId, req.body?.progress || {});
+  return res.json({ progress: saved });
+});
 
 // API: Diagnose Assessment
 app.post('/api/analyze', async (req, res) => {
