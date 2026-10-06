@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { User } from '@supabase/supabase-js';
 import { Navbar, NavTab } from './components/Navbar';
-import { AuthView } from './components/AuthView';
 import { AssessmentView } from './components/AssessmentView';
 import { AnalysisLoadingModal } from './components/AnalysisLoadingModal';
 import {
@@ -13,7 +11,6 @@ import {
 } from './components/StudentFlowViews';
 import { AssessmentResult, PracticeQuestion, ReassessmentResult, StudentResponse, DomainId, Question, StudentLanguage } from './types';
 import { AIService } from './services/aiService';
-import { supabaseClient } from './services/supabaseClient';
 import { getDomainConfig, getQuestionsForDomain, TECHNICAL_DOMAINS } from './data/technicalDomains';
 
 interface SavedDomainProgress {
@@ -24,9 +21,9 @@ interface SavedDomainProgress {
 
 type DomainProgress = Partial<Record<DomainId, SavedDomainProgress>>;
 
-const readDomainProgress = (userId: string): DomainProgress => {
+const readDomainProgress = (): DomainProgress => {
   try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(`domainbreakers-progress:${userId}`) || '{}');
+    const parsed: unknown = JSON.parse(window.localStorage.getItem('domainbreakers-progress') || '{}');
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
     return parsed as DomainProgress;
   } catch {
@@ -38,9 +35,6 @@ const isDomainId = (value: string | null): value is DomainId =>
   TECHNICAL_DOMAINS.some(domain => domain.id === value);
 
 export default function App() {
-  const [authUser, setAuthUser] = useState<User | null>(null);
-  const [authReady, setAuthReady] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
   const [activeDomain, setActiveDomain] = useState<DomainId>(() => {
     const stored = window.localStorage.getItem('domainbreakers-domain');
@@ -54,41 +48,12 @@ export default function App() {
     questions: Question[];
     responses: StudentResponse[];
   } | null>(null);
-  const [domainProgress, setDomainProgress] = useState<DomainProgress>({});
+  const [domainProgress, setDomainProgress] = useState<DomainProgress>(readDomainProgress);
   const [studentLanguage, setStudentLanguage] = useState<StudentLanguage>(() => {
     const stored = window.localStorage.getItem('domainbreakers-language');
     return stored === 'hi' || stored === 'mr' ? stored : 'en';
   });
   const [aiSource, setAiSource] = useState<'gemini-3.8-flash' | 'deterministic_engine'>('gemini-3.8-flash');
-
-  useEffect(() => {
-    if (!supabaseClient) {
-      setAuthReady(true);
-      return;
-    }
-
-    let previousUserId: string | null = null;
-    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-      const nextUser = session?.user ?? null;
-      const nextUserId = nextUser?.id ?? null;
-
-      if (nextUserId !== previousUserId) {
-        setDomainProgress(nextUser ? readDomainProgress(nextUser.id) : {});
-        setAssessmentResult(null);
-        setReassessmentResult(null);
-        setPendingAssessment(null);
-        setIsAnalyzing(false);
-        setCurrentTab('dashboard');
-      }
-
-      previousUserId = nextUserId;
-      setAuthUser(nextUser);
-      setAuthError(null);
-      setAuthReady(true);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   const currentQuestions = useMemo(() => getQuestionsForDomain(activeDomain), [activeDomain]);
   const activeProgress = domainProgress[activeDomain];
@@ -102,17 +67,8 @@ export default function App() {
   }, [activeDomain]);
 
   useEffect(() => {
-    if (authUser) {
-      window.localStorage.setItem(`domainbreakers-progress:${authUser.id}`, JSON.stringify(domainProgress));
-    }
-  }, [authUser, domainProgress]);
-
-  const handleSignOut = async () => {
-    if (!supabaseClient) return;
-
-    const { error } = await supabaseClient.auth.signOut();
-    if (error) setAuthError(error.message);
-  };
+    window.localStorage.setItem('domainbreakers-progress', JSON.stringify(domainProgress));
+  }, [domainProgress]);
 
   const handleSelectDomain = (domain: DomainId) => {
     setActiveDomain(domain);
@@ -228,18 +184,6 @@ export default function App() {
     .slice(3, 6 - originalQuickCheck.length) || [];
   const quickCheck = [...originalQuickCheck, ...supplementalQuickCheck].slice(0, 5);
 
-  if (!authReady) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[var(--color-soft-white)] px-4">
-        <p role="status" className="text-sm font-medium text-slate-400">Checking your sign-in…</p>
-      </main>
-    );
-  }
-
-  if (!authUser) {
-    return <AuthView client={supabaseClient} />;
-  }
-
   return (
     <div className="min-h-screen bg-[var(--color-soft-white)] text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
       {/* Navigation Header */}
@@ -253,9 +197,6 @@ export default function App() {
         onSelectDomain={handleSelectDomain}
         studentLanguage={studentLanguage}
         onLanguageChange={setStudentLanguage}
-        userEmail={authUser.email || 'Signed in'}
-        onSignOut={() => { void handleSignOut().catch(error => setAuthError(error instanceof Error ? error.message : 'Unable to sign out.')); }}
-        accountError={authError}
       />
 
       {/* Main View Port */}

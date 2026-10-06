@@ -12,8 +12,7 @@ import {
   Sparkles,
   ArrowRight,
   ChevronDown,
-  Terminal,
-  LogOut
+  Terminal
 } from 'lucide-react';
 import { DomainId, StudentLanguage } from '../types';
 import { DOMAIN_GROUPS, getDomainConfig } from '../data/technicalDomains';
@@ -40,9 +39,6 @@ interface NavbarProps {
   onSelectDomain: (domain: DomainId) => void;
   studentLanguage?: StudentLanguage;
   onLanguageChange?: (language: StudentLanguage) => void;
-  userEmail: string;
-  onSignOut: () => void;
-  accountError?: string | null;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -54,10 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeDomain,
   onSelectDomain,
   studentLanguage = 'en',
-  onLanguageChange,
-  userEmail,
-  onSignOut,
-  accountError
+  onLanguageChange
 }) => {
   const [showDomainMenu, setShowDomainMenu] = useState(false);
   const selectedDomain = getDomainConfig(activeDomain);
@@ -172,21 +165,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 ))}
               </select>
             </div>
-            <div className="flex max-w-full items-center gap-2">
-              <span className="hidden max-w-40 truncate text-xs text-slate-400 md:block" title={userEmail}>
-                {userEmail}
-              </span>
-              <button
-                type="button"
-                onClick={onSignOut}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-emerald-600 hover:text-emerald-700"
-              >
-                <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
-                Sign out
-              </button>
-            </div>
           </div>
-          {accountError && <p role="alert" className="w-full pb-2 text-center text-xs text-rose-600">{accountError}</p>}
 
           {/* Desktop Navigation Links */}
           <nav className="hidden">
