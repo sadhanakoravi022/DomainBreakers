@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig, Plugin } from 'vite';
 import { runGeminiDiagnosis } from './server/gemini';
+import { getProgressForClient, saveProgressForClient } from './server/sqlDatabase';
 
 function apiServerPlugin(): Plugin {
   return {
@@ -12,6 +13,13 @@ function apiServerPlugin(): Plugin {
         if (!req.url?.startsWith('/api/')) {
           return next();
         }
+
+        const getClientId = () => {
+          const clientId = req.headers['x-client-id'];
+          return typeof clientId === 'string' && clientId.length <= 128
+            ? clientId
+            : null;
+        };
 
         // Helper to parse JSON body
         const getBody = (): Promise<any> => {
@@ -27,6 +35,45 @@ function apiServerPlugin(): Plugin {
             });
           });
         };
+
+        if (req.url === '/api/progress' && req.method === 'GET') {
+          const clientId = getClientId();
+          if (!clientId) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: 'Missing or invalid client ID.' }));
+            return;
+          }
+          try {
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ progress: getProgressForClient(clientId) }));
+          } catch (error) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: error instanceof Error ? error.message : 'Unable to load progress.' }));
+          }
+          return;
+        }
+
+        if (req.url === '/api/progress' && req.method === 'PUT') {
+          const clientId = getClientId();
+          if (!clientId) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: 'Missing or invalid client ID.' }));
+            return;
+          }
+          const body = await getBody();
+          try {
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ progress: saveProgressForClient(clientId, body.progress || {}) }));
+          } catch (error) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: error instanceof Error ? error.message : 'Unable to save progress.' }));
+          }
+          return;
+        }
 
         if (req.url === '/api/analyze' && req.method === 'POST') {
           try {
@@ -91,4 +138,3 @@ export default defineConfig(() => {
     },
   };
 });
-
