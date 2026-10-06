@@ -11,7 +11,7 @@ function getClientId() {
   return clientId;
 }
 
-async function requestProgress<T>(method: 'GET' | 'PUT', body?: unknown): Promise<T> {
+async function requestProgress(method, body) {
   const response = await fetch('/api/progress', {
     method,
     headers: {
@@ -26,14 +26,14 @@ async function requestProgress<T>(method: 'GET' | 'PUT', body?: unknown): Promis
     throw new Error(payload.error || 'Unable to save learning progress.');
   }
 
-  return payload as T;
+  return payload;
 }
 
 export async function loadSqlProgress() {
-  const payload = await requestProgress<{ progress: unknown }>('GET');
+  const payload = await requestProgress('GET');
   return payload.progress;
 }
 
-export async function saveSqlProgress(progress: unknown) {
-  await requestProgress<{ progress: unknown }>('PUT', { progress });
+export async function saveSqlProgress(progress) {
+  await requestProgress('PUT', { progress });
 }
