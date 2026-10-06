@@ -11,9 +11,8 @@ import {
 } from './components/StudentFlowViews';
 import { AssessmentResult, PracticeQuestion, ReassessmentResult, StudentResponse, DomainId, Question, StudentLanguage } from './types';
 import { AIService } from './services/aiService';
+import { loadSqlProgress, saveSqlProgress } from './services/progressStorage';
 import { getDomainConfig, getQuestionsForDomain, TECHNICAL_DOMAINS } from './data/technicalDomains';
-import { AuthView } from './components/AuthView';
-import { supabase } from './lib/supabase';
 
 interface SavedDomainProgress {
   assessmentResult: AssessmentResult;
@@ -37,9 +36,6 @@ const isDomainId = (value: string | null): value is DomainId =>
   TECHNICAL_DOMAINS.some(domain => domain.id === value);
 
 export default function App() {
-  const [session, setSession] = useState<any>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
   const [activeDomain, setActiveDomain] = useState<DomainId>(() => {
     const stored = window.localStorage.getItem('domainbreakers-domain');
@@ -54,6 +50,7 @@ export default function App() {
     responses: StudentResponse[];
   } | null>(null);
   const [domainProgress, setDomainProgress] = useState<DomainProgress>(readDomainProgress);
+  const [progressLoaded, setProgressLoaded] = useState(false);
   const [studentLanguage, setStudentLanguage] = useState<StudentLanguage>(() => {
     const stored = window.localStorage.getItem('domainbreakers-language');
     return stored === 'hi' || stored === 'mr' ? stored : 'en';
@@ -63,26 +60,6 @@ export default function App() {
   const currentQuestions = useMemo(() => getQuestionsForDomain(activeDomain), [activeDomain]);
   const activeProgress = domainProgress[activeDomain];
 
-  useEffect(() => {
-  const getSession = async () => {
-    const { data } = await supabase.auth.getSession();
-    setSession(data.session);
-    setAuthLoading(false);
-  };
-
-  getSession();
-
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange((_event, session) => {
-    setSession(session);
-  });
-
-  return () => {
-    subscription.unsubscribe();
-  };
-}, []);
-
 useEffect(() => {
   window.localStorage.setItem('domainbreakers-language', studentLanguage);
 }, [studentLanguage]);
@@ -91,8 +68,43 @@ useEffect(() => {
   }, [activeDomain]);
 
   useEffect(() => {
+    let cancelled = false;
+    loadSqlProgress()
+      .then((savedProgress) => {
+        if (!cancelled && savedProgress && typeof savedProgress === 'object' && !Array.isArray(savedProgress)) {
+          setDomainProgress(previous => {
+            const hasLocalProgress = Object.keys(previous).length > 0;
+            const hasSavedProgress = Object.keys(savedProgress).length > 0;
+            return hasLocalProgress && !hasSavedProgress
+              ? previous
+              : savedProgress as DomainProgress;
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('Unable to load SQL-backed learning progress:', error);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setProgressLoaded(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!progressLoaded) {
+      return;
+    }
+
     window.localStorage.setItem('domainbreakers-progress', JSON.stringify(domainProgress));
-  }, [domainProgress]);
+    saveSqlProgress(domainProgress).catch((error: unknown) => {
+      console.error('Unable to save SQL-backed learning progress:', error);
+    });
+  }, [domainProgress, progressLoaded]);
 
   const handleSelectDomain = (domain: DomainId) => {
     setActiveDomain(domain);
@@ -204,31 +216,11 @@ useEffect(() => {
       }))
     : [];
   const supplementalQuickCheck = selectedAssessmentResult?.adaptivePractice
-    .filter(question => question.concept === targetConcept)
-    .slice(3, 6 - originalQuickCheck.length) || [];
-const quickCheck = [...originalQuickCheck, ...supplementalQuickCheck].slice(0, 5);
+      .filter(question => question.concept === targetConcept)
+      .slice(3, 6 - originalQuickCheck.length) || [];
+  const quickCheck = [...originalQuickCheck, ...supplementalQuickCheck].slice(0, 5);
 
-if (authLoading) {
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-      <div className="text-center">
-        <div className="text-xl font-bold text-white">
-          DOMAIN<span className="text-indigo-400">BREAKERS</span>
-        </div>
-
-        <p className="mt-2 text-sm text-slate-400">
-          Checking your account...
-        </p>
-      </div>
-    </div>
-  );
-}
-
-if (!session) {
-  return <AuthView onAuthenticated={() => {}} />;
-}
-
-return (
   <div className="min-h-screen bg-[var(--color-soft-white)] text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
       {/* Navigation Header */}
       <Navbar
